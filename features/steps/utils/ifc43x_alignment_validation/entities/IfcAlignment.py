@@ -20,7 +20,6 @@ class Alignment:
 
     def __init__(self):
         self._elem = None
-        self._has_representation = None
         self._horizontal = None
         self._vertical = None
         self._cant = None
@@ -77,7 +76,6 @@ class Alignment:
 
         product_rep = elem.Representation
         if product_rep is not None:
-            self._has_representation = True
             self._representations = product_rep.Representations
 
             for rep in self._representations:
@@ -94,8 +92,6 @@ class Alignment:
                             self._gradient_curve = GradientCurve().from_entity(
                                 self._segmented_reference_curve.BaseCurve
                             )
-        else:
-            self._has_representation = False
         return self
 
     @property
@@ -110,7 +106,19 @@ class Alignment:
         """
         Indicates whether this alignment has at least one representation
         """
-        return self._has_representation
+        if self._representations is not None:
+            if len(self._representations) > 1:
+                return True
+        return False
+
+    @property
+    def has_business_logic(self) -> bool:
+        """
+        Indicates whether this alignment contains one or more business logic layouts
+        """
+        if (self._horizontal is None) and (self._vertical is None) and (self._cant is None):
+            return False
+        return True
 
     @property
     def Representation(self) -> ifcopenshell.entity_instance:

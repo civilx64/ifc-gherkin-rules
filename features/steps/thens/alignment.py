@@ -353,3 +353,23 @@ def step_impl(context, inst, activation_phrase):
                         observed=observed_msg,
                         severity=OutcomeSeverity.ERROR,
                     )
+
+
+@gherkin_ifc.step("It should contain both business logic and representation")
+def step_impl(context, inst):
+    align = ifc43.entities.Alignment().from_entity(inst)
+    valid = True
+    expected = "Both business logic and representation"
+    if not align.has_business_logic:
+        observed = "Business logic not present"
+        valid = False
+    elif not align.has_representation:
+        observed = "Representation not present"
+        valid = False
+    if not valid:
+        yield ValidationOutcome(
+            inst=inst,
+            expected=expected,
+            observed=observed,
+            severity=OutcomeSeverity.WARNING,
+        )
