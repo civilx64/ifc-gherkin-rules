@@ -2,7 +2,7 @@ import csv
 import functools
 import operator
 import re
-from typing import Tuple
+from typing import List
 import ifcopenshell
 import os
 
@@ -168,106 +168,92 @@ def step_impl(context, inst, path, npath, varname1, op, varname2):
     yield ValidationOutcome(inst=inst, expected=v2, observed=v1, severity=OutcomeSeverity.PASSED if passed else OutcomeSeverity.ERROR)
 
 @full_stack_rule
-@gherkin_ifc.step('the profiles must have the same number of points and edges')
-def step_impl(context, inst):
+@gherkin_ifc.step('the [{profiles_or_xsects}] must have the same number of [{thing_to_count}]')
+def step_impl(context, inst, profiles_or_xsects: str, thing_to_count: str):
     def count_edges_in_segment(indexed_segment_inst):
         if indexed_segment_inst.is_a("IfcArcIndex"):
             return 1
         elif indexed_segment_inst.is_a("IfcLineIndex"):
             return len(indexed_segment_inst.wrappedValue) - 1
         else:
-            return 0
+            raise NotImplementedError
 
-    def handle_curves(curr_crv, next_crv):
-        curr_crv_type = curr_crv.is_a().upper()
-        next_crv_type = next_crv.is_a().upper()
-        if curr_crv_type == next_crv_type:
-            match curr_crv_type:
-                case "IFCPOLYLINE":
-                    # num_edges always == (num_points - 1)
-                    # therefore just test number of points in profile definition curve
-                    curr_crv_pt_count = len(curr_crv.Points)
-                    next_crv_pt_count = len(next_crv.Points)
-                    if curr_crv_pt_count != next_crv_pt_count:
-                        expected_msg = f"{curr_crv_pt_count} points in profile definition curve"
-                        observed_msg = f"{next_crv_pt_count} points in profile definition curve"
-                        yield ValidationOutcome(inst=next_crv, expected=expected_msg, observed=observed_msg,
-                                                severity=OutcomeSeverity.ERROR)
+    def count_edges_in_curve(curve_inst):
+        if curve_inst.is_a("IfcPolyline"):
+            return 1
+        elif curve_inst.is_a("IfcIndexedPolyCurve"):
+            return sum([count_edges_in_segment(seg) for seg in curve_inst.Segments])
+        else:
+            raise NotImplementedError
 
-                case "IFCINDEXEDPOLYCURVE":
-                    # check overall number of points
-                    curr_crv_pt_count = len(geometry.get_points(curr_crv))
-                    next_crv_pt_count = len(geometry.get_points(curr_crv))
-                    if curr_crv_pt_count != next_crv_pt_count:
-                        expected_msg = f"{curr_crv_pt_count} points in profile definition curve"
-                        observed_msg = f"{next_crv_pt_count} points in profile definition curve"
-                        yield ValidationOutcome(inst=next_crv, expected=expected_msg, observed=observed_msg,
-                                                severity=OutcomeSeverity.ERROR)
+    def count_points_in_curve(curve_inst):
+        if curve_inst.is_a("IfcPolyline") | curve_inst.is_a("IfcIndexedPolyCurve"):
+            return len(geometry.get_points(curve_inst))
+        else:
+            raise NotImplementedError
 
-                    # check overall number of segments
-                    if curr_crv.Segments and next_crv.Segments:
-                        curr_crv_seg_count = len(curr_crv.Segments)
-                        next_crv_seg_count = len(next_crv.Segments)
-                        if curr_crv_seg_count != next_crv_seg_count:
-                            expected_msg = f"{curr_crv_seg_count} segments in profile definition curve"
-                            observed_msg = f"{next_crv_seg_count} segments in profile definition curve"
-                            yield ValidationOutcome(inst=next_crv, expected=expected_msg, observed=observed_msg,
-                                                    severity=OutcomeSeverity.ERROR)
+    def handle_profile(profile_inst) -> List | None:
+        # NOTE: Currently this step implementation is only used in SWE003 which explicitly selects only IfcArbitraryClosedProfileDef.
+        # To be potentially expanded in case of other scenarios.
+        if profile_inst.is_a("IfcArbitraryClosedProfileDef"):
+            return [profile_inst.OuterCurve]
 
-                    # iterate segments and confirm same number of points and edges in each
-                    for seg_in_curr, seg_in_next in zip(curr_crv.Segments, next_crv.Segments):
-                        # segment will be either IfcLineIndex or IfcArcIndex
-                        # the two segment types don't necessarily have to be the same - e.g. could sweep between polyline of three points and an arc
-                        curr_seg_pt_count = len(seg_in_curr.wrappedValue)
-                        next_seg_pt_count = len(seg_in_next.wrappedValue)
-                        if curr_seg_pt_count != next_seg_pt_count:
-                            expected_msg = f"{curr_seg_pt_count} points in {seg_in_curr.is_a()}"
-                            observed_msg = f"{next_seg_pt_count} points in {seg_in_next.is_a()}"
-                            yield ValidationOutcome(inst=next_crv, expected=expected_msg, observed=observed_msg,
-                                                    severity=OutcomeSeverity.ERROR)
+        elif profile_inst.is_a("IfcDerivedProfileDef"):
+            parent_prof = profile_inst.ParentProfile
+            assert parent_prof.is_a("IfcArbitraryClosedProfileDef")
+            return [parent_prof.OuterCurve]
 
-                        curr_seg_edge_count = count_edges_in_segment(seg_in_curr)
-                        next_seg_edge_count = count_edges_in_segment(seg_in_next)
-                        if curr_seg_edge_count != next_seg_edge_count:
-                            expected_msg = f"{curr_seg_edge_count} edges in {seg_in_curr.is_a()}"
-                            observed_msg = f"{next_seg_edge_count} edges in {seg_in_next.is_a()}"
-                            yield ValidationOutcome(inst=next_crv, expected=expected_msg, observed=observed_msg,
-                                                    severity=OutcomeSeverity.ERROR)
-
-                    else:
-                        # IndexedPolyCurve is just a polyline if Segments are not provided
-                        curr_polycrv_pt_count = len(curr_crv.Points.CoordList)
-                        next_polycrv_pt_count = len(next_crv.Points.CoordList)
-                        if curr_polycrv_pt_count != next_polycrv_pt_count:
-                            expected_msg = f"{curr_polycrv_pt_count} points in profile definition curve"
-                            observed_msg = f"{next_polycrv_pt_count} points in profile definition curve"
-                            yield ValidationOutcome(inst=next_crv, expected=expected_msg, observed=observed_msg,
-                                                    severity=OutcomeSeverity.ERROR)
-
-                case _:
-                    pass
+        elif profile_inst.is_a("IfcCompositeProfileDef"):
+            return [handle_profile(p) for p in profile_inst.Profiles]
 
         else:
-            # NOTE: consider enforcing cross section curves to be of the same type.
-            # this is not explicitly called for in the IfcSectionedSolidHorizontal docs,
-            # so it is not implemented for SWE003.
-            # There may be value in a future additional rule in the SWE functional part.
-            # Ref: https://github.com/buildingSMART/ifc-gherkin-rules/pull/523
-           pass
+            raise TypeError(f"Expected a non-parametric profile definition, got {profile_inst.is_a()}")
 
 
-    for pair_of_profiles in inst:
-        curr_profile, next_profile = pair_of_profiles
-        if (curr_profile is not None) & (next_profile is not None):
-            curr_profile, next_profile = misc.iflatten(curr_profile), misc.iflatten(next_profile)
+    if profiles_or_xsects.upper() == "CROSS SECTIONS":
+        xsects = getattr(inst, "CrossSections")
+        if xsects:
+            # NOTE: for the purposes of the initial rule utilizing this step implementation (SWE003),
+            # [cross sections] can only be paired with [profiles], which should only be used with IfcCompositeProfileDef
+            # to check that each composite profile contains the same number of child profiles.
+            if thing_to_count.upper() == "PROFILES":
+                profile_counts = list()
+                for xs in xsects:
+                    if xs.is_a("IfcCompositeProfileDef"):
+                        profile_counts.append(len(xs.Profiles))
+                num_matches = set(profile_counts)
+                num_uniques = len(num_matches)
+                if num_uniques != 1:
+                    yield ValidationOutcome(
+                        inst=inst,
+                        expected="same count of profiles in IfcCompositeProfileDef cross sections",
+                        observed=f"{num_uniques} different counts of profiles in IfcCompositeProfileDef cross sections",
+                        severity=OutcomeSeverity.ERROR
+                    )
+    elif profiles_or_xsects.upper() == "PROFILES":
+        profiles = getattr(inst, "CrossSections")
+        curves = [handle_profile(p) for p in profiles]
 
-            for cp, np in zip(curr_profile, next_profile):
+        counts = list()
+        for crv in curves:
+            if crv:
+                for sub_crv in crv:
+                    if thing_to_count.upper() == "POINTS":
+                        counting_func = count_points_in_curve
+                    elif thing_to_count.upper() == "EDGES":
+                        counting_func = count_edges_in_curve
+                    else:
+                        raise NotImplementedError(f"Unsupported count type: {thing_to_count}")
+                    counts.append([counting_func(c) for c in sub_crv])
 
-                # NOTE: Currently this step implementation is only used in SWE003 which explicitly selects only IfcArbitraryClosedProfileDef.
-                # To be potentially expanded in case of other scenarios.
-                assert cp.is_a('IfcArbitraryClosedProfileDef') and np.is_a(
-                    'IfcArbitraryClosedProfileDef')
+        all_counts = [ct for inner in counts for ct in inner]
+        num_uniques = len(set(all_counts))
+        if num_uniques != 1:
+            yield ValidationOutcome(
 
-                curr_curve, next_curve = cp.OuterCurve, np.OuterCurve
-                yield from handle_curves(curr_curve, next_curve)
+                inst=inst,
+                expected=f"same count of {thing_to_count.lower()} in cross section profiles",
+                observed=f"{num_uniques} different counts of {thing_to_count.lower()} in cross section profiles",
+                severity=OutcomeSeverity.ERROR
+            )
 

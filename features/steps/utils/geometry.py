@@ -167,7 +167,7 @@ def get_points(inst, return_type='coord', include_arc_midpoints=True):
         else:
             return get_points(inst.Points)
     else:
-        raise NotImplementedError(f'get_points() not implemented on {inst.is_a}')
+        raise NotImplementedError(f'get_points() not implemented on {inst.is_a()}')
 
 
 def is_closed(context, instance):
