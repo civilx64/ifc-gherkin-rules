@@ -1,0 +1,228 @@
+
+IFC Gherkin Rules Documentation
+===============================
+
+This documentation contains the feature definitions and step implementations
+used for IFC-based rule validation in Gherkin format as used by the bSI
+validation service.
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents
+
+   features/index
+   steps/index
+                         
+.. list-table:: Version history
+   :header-rows: 1
+
+   * - rule
+     - archive/GRP001
+   * - ``ALB000``
+     - n/a
+   * - ``ALB002``
+     - n/a
+   * - ``ALB003``
+     - v1
+   * - ``ALB004``
+     - v1
+   * - ``ALB005``
+     - n/a
+   * - ``ALB010``
+     - n/a
+   * - ``ALB012``
+     - n/a
+   * - ``ALB015``
+     - n/a
+   * - ``ALB021``
+     - n/a
+   * - ``ALB022``
+     - n/a
+   * - ``ALB023``
+     - n/a
+   * - ``ALB030``
+     - n/a
+   * - ``ALB031``
+     - n/a
+   * - ``ALB032``
+     - n/a
+   * - ``ALS000``
+     - n/a
+   * - ``ALS004``
+     - n/a
+   * - ``ALS005``
+     - n/a
+   * - ``ALS006``
+     - v1
+   * - ``ALS007``
+     - v1
+   * - ``ALS008``
+     - v1
+   * - ``ALS010``
+     - n/a
+   * - ``ALS011``
+     - n/a
+   * - ``ALS012``
+     - n/a
+   * - ``ALS015``
+     - n/a
+   * - ``ALS016``
+     - n/a
+   * - ``ALS017``
+     - n/a
+   * - ``ANN000``
+     - n/a
+   * - ``ASM000``
+     - n/a
+   * - ``AXG000``
+     - n/a
+   * - ``BBX000``
+     - n/a
+   * - ``BBX001``
+     - n/a
+   * - ``BLT000``
+     - n/a
+   * - ``BLT001``
+     - n/a
+   * - ``BLT002``
+     - n/a
+   * - ``BLT003``
+     - n/a
+   * - ``BRP001``
+     - n/a
+   * - ``BRP002``
+     - n/a
+   * - ``BRP003``
+     - n/a
+   * - ``CLS000``
+     - n/a
+   * - ``CTX000``
+     - n/a
+   * - ``DOC000``
+     - n/a
+   * - ``GDP000``
+     - n/a
+   * - ``GEM001``
+     - v1
+   * - ``GEM002``
+     - v1
+   * - ``GEM003``
+     - v1
+   * - ``GEM004``
+     - v1
+   * - ``GEM005``
+     - n/a
+   * - ``GEM011``
+     - n/a
+   * - ``GEM051``
+     - n/a
+   * - ``GEM052``
+     - n/a
+   * - ``GEM111``
+     - v1
+   * - ``GEM112``
+     - n/a
+   * - ``GEM113``
+     - n/a
+   * - ``GRF000``
+     - n/a
+   * - ``GRF001``
+     - v1
+   * - ``GRF002``
+     - n/a
+   * - ``GRF003``
+     - n/a
+   * - ``GRF004``
+     - n/a
+   * - ``GRF005``
+     - n/a
+   * - ``GRF006``
+     - n/a
+   * - ``GRF007``
+     - n/a
+   * - ``GRF008``
+     - n/a
+   * - ``GRP000``
+     - n/a
+   * - ``GRP001``
+     - n/a
+   * - ``IFC101``
+     - n/a
+   * - ``IFC102``
+     - n/a
+   * - ``IFC105``
+     - n/a
+   * - ``IFC106``
+     - n/a
+   * - ``IFC430``
+     - n/a
+   * - ``IFC431``
+     - n/a
+   * - ``LAY000``
+     - n/a
+   * - ``LIP000``
+     - n/a
+   * - ``LIP002``
+     - n/a
+   * - ``LOP000``
+     - n/a
+   * - ``MAT000``
+     - n/a
+   * - ``MPD001``
+     - n/a
+   * - ``OJP000``
+     - n/a
+   * - ``OJP001``
+     - v1
+   * - ``OJT001``
+     - n/a
+   * - ``PJS000``
+     - n/a
+   * - ``PJS001``
+     - n/a
+   * - ``PJS002``
+     - n/a
+   * - ``PJS003``
+     - n/a
+   * - ``PJS101``
+     - n/a
+   * - ``POR000``
+     - n/a
+   * - ``PSE001``
+     - n/a
+   * - ``PSE002``
+     - n/a
+   * - ``QTY000``
+     - n/a
+   * - ``QTY001``
+     - n/a
+   * - ``SPA000``
+     - n/a
+   * - ``SPS001``
+     - v1
+   * - ``SPS002``
+     - v1
+   * - ``SPS003``
+     - n/a
+   * - ``SPS004``
+     - n/a
+   * - ``SPS005``
+     - n/a
+   * - ``SPS006``
+     - n/a
+   * - ``SPS007``
+     - n/a
+   * - ``SPS008``
+     - n/a
+   * - ``SWE001``
+     - n/a
+   * - ``SWE002``
+     - n/a
+   * - ``SYS001``
+     - n/a
+   * - ``TAS001``
+     - n/a
+   * - ``VER000``
+     - n/a
+   * - ``VRT000``
+     - n/a
