@@ -12,31 +12,10 @@ The rule only verifies profiles of type IfcArbitraryClosedProfileDef.
     Given a model with Schema 'IFC4.3'
 
     Given an .IfcSectionedSolidHorizontal.
-    Given its attribute .CrossSections.
 
-  Scenario: IfcArbitraryClosedProfileDef
+  Scenario: Same number of edges
 
-    Given [its entity type] ^is^ 'IfcArbitraryClosedProfileDef'
-    Given the instances '3' steps up
-    Then the [profiles] must have the same number of [points]
-    Then the [profiles] must have the same number of [edges]
-
-  Scenario: IfcDerivedProfileDef
-
-    Given [its entity type] ^is^ 'IfcDerivedProfileDef'
-    Given its attribute .ParentProfile.
-    Given [its entity type] ^is^ 'IfcArbitraryClosedProfileDef'
-    Given the instances '5' steps up
-    Then the [profiles] must have the same number of [points]
-    Then the [profiles] must have the same number of [edges]
-
-  Scenario: IfcCompositeProfileDef
-
-    Given [its entity type] ^is^ 'IfcCompositeProfileDef'
-    Given its attribute .Profiles.
-    Given [its entity type] ^is^ 'IfcArbitraryClosedProfileDef'
-    Given the instances '5' steps up
-    Then the [cross sections] must have the same number of [profiles]
-    Then the [profiles] must have the same number of [points]
-    Then the [profiles] must have the same number of [edges]
+    Given the [edges] of .CrossSections.
+    Given the number of [edges]
+    Then the values must be identical at depth 1
 

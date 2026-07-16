@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import itertools
 import operator
 import math
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Any
 
 import numpy as np
 import mpmath as mp
@@ -128,10 +128,35 @@ def get_edges(file, inst, sequence_type=frozenset, oriented=False):
                 if f.is_a("IfcIndexedPolygonalFaceWithVoids"):
                     for inner in f.InnerCoordIndices:
                         yield from emit(inner)
+
+        elif inst.is_a("IfcPolyline"):
+            coords = list()
+            for pt in inst.Points:
+                coords.append(pt.Coordinates)
+            edges = itertools.pairwise(coords)
+            yield from map(edge_type, edges)
+
         else:
             raise NotImplementedError(f"get_edges({inst.is_a()})")
 
     return sequence_type(inner())
+
+
+def get_profile_curve(inst: ifcopenshell.entity_instance) -> tuple[
+    tuple[ifcopenshell.entity_instance] | tuple[tuple[ifcopenshell.entity_instance]], ...] | Any:
+    """
+    Return the curve(s) that define an arbitrary profile definition
+    """
+    if inst.is_a('IfcArbitraryClosedProfileDef'):
+        return inst.OuterCurve,
+    elif inst.is_a('IfcArbitraryOpenProfileDef)'):
+        return inst.Curve
+    elif inst.is_a('IfcCompositeProfileDef'):
+        return tuple(get_profile_curve(prf) for prf in inst.Profiles)
+    elif inst.is_a('IfcDerivedProfileDef)'):
+        return get_profile_curve(inst.ParentProfile),
+    else:
+        raise NotImplementedError(f"get_profile_curve({inst.is_a()})")
 
 
 def get_points(inst, return_type='coord', include_arc_midpoints=True):
