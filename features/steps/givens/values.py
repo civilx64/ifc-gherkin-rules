@@ -57,6 +57,18 @@ def step_impl(context, inst, edges_or_points, attribute_containing_geometry):
     """
     geom_inst_container = getattr(inst, attribute_containing_geometry)
     profiles = tuple(utils.geometry.get_profile_curve(gi) for gi in geom_inst_container)
+
+    def contains_none(item):
+        if item is None:
+            return True
+        if isinstance(item, (tuple, list)):
+            return any(contains_none(sub_item) for sub_item in item)
+        return False
+
+    if contains_none(profiles):
+        # parameterized profiles (e.g. IfcRectangleProfileDef) are out of scope for this rule
+        return
+
     def extract_geometry(item):
         """
         Recursively extract geometry, preserving nesting structure
@@ -65,7 +77,9 @@ def step_impl(context, inst, edges_or_points, attribute_containing_geometry):
             return tuple(extract_geometry(sub_item) for sub_item in item)
         else:
            if edges_or_points.upper() == "EDGES":
-               return utils.geometry.get_edges(context.model, item)
+               # sequence_type=tuple: count edge traversals rather than distinct
+               # edges, so degenerate curves that revisit an edge are not masked
+               return utils.geometry.get_edges(context.model, item, sequence_type=tuple)
            elif edges_or_points.upper() == "POINTS":
                return utils.geometry.get_points(context.model, item)
            else:
@@ -85,10 +99,7 @@ def step_impl(context, inst, edges_or_points):
         def count_collection(item):
             if isinstance(item, (tuple, list)):
                 return tuple(count_collection(sub_item) for sub_item in item)
-            elif isinstance(item, (frozenset, set)):
-                return len(item)
-            else:
-                return len(item)
+            return len(item)
         count = count_collection(inst)
         yield ValidationOutcome(inst=count, severity=OutcomeSeverity.PASSED)
     else:

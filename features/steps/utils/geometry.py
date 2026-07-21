@@ -136,6 +136,21 @@ def get_edges(file, inst, sequence_type=frozenset, oriented=False):
             edges = itertools.pairwise(coords)
             yield from map(edge_type, edges)
 
+        elif inst.is_a("IfcIndexedPolyCurve"):
+            coords = get_points(inst.Points)
+            if inst.Segments:
+                for seg in inst.Segments:
+                    indices = seg[0]
+                    if seg.is_a("IfcArcIndex"):
+                        # an arc spans three indices but constitutes a single edge
+                        index_pairs = [(indices[0], indices[-1])]
+                    else:
+                        index_pairs = itertools.pairwise(indices)
+                    for a, b in index_pairs:
+                        yield edge_type((tuple(coords[a - 1]), tuple(coords[b - 1])))
+            else:
+                yield from map(edge_type, itertools.pairwise(map(tuple, coords)))
+
         else:
             raise NotImplementedError(f"get_edges({inst.is_a()})")
 
@@ -149,12 +164,14 @@ def get_profile_curve(inst: ifcopenshell.entity_instance) -> tuple[
     """
     if inst.is_a('IfcArbitraryClosedProfileDef'):
         return inst.OuterCurve,
-    elif inst.is_a('IfcArbitraryOpenProfileDef)'):
+    elif inst.is_a('IfcArbitraryOpenProfileDef'):
         return inst.Curve
     elif inst.is_a('IfcCompositeProfileDef'):
         return tuple(get_profile_curve(prf) for prf in inst.Profiles)
-    elif inst.is_a('IfcDerivedProfileDef)'):
+    elif inst.is_a('IfcDerivedProfileDef'):
         return get_profile_curve(inst.ParentProfile),
+    elif inst.is_a('IfcParameterizedProfileDef'):
+        return None
     else:
         raise NotImplementedError(f"get_profile_curve({inst.is_a()})")
 

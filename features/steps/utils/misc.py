@@ -405,9 +405,11 @@ class ContiguousSet:
 from array import array
 
 TAG_TUPLE = 0
-TAG_ARRAY = 1
-TAG_SINGULAR_INT = 2
+TAG_ARRAY = 1          # tuple of entity instances, stored as ids, resolved via model on decode
+TAG_SINGULAR_INT = 2   # single entity instance, stored as id, resolved via model on decode
 TAG_NONE = 3
+TAG_ARRAY_RAW = 4      # tuple of plain ints, decoded as-is
+TAG_SINGULAR_RAW = 5   # single plain int, decoded as-is
 
 class PackedBuilder:
     """
@@ -433,20 +435,18 @@ class PackedBuilder:
         Append the encoding for `obj` into data/struct.
         Returns the struct index where this node starts.
         """
-        # Tuples: either compress as a single array node (pure ints) or
-        # as a general tuple node with children.
+        # Both entity instances and plain ints are stored as numbers, so the
+        # tag records which of the two it was: only entity ids may be resolved
+        # via the model on decode.
         if isinstance(obj, tuple):
-            # If this is a pure tuple-of-ints (and not empty), compress as one array node.
-            all_int = len(obj) and all(isinstance(x, (int, ifcopenshell.entity_instance)) for x in obj)
-            if all_int:
+            all_entity = len(obj) and all(isinstance(x, ifcopenshell.entity_instance) for x in obj)
+            all_raw = not all_entity and len(obj) and all(isinstance(x, int) for x in obj)
+            if all_entity or all_raw:
                 offset = len(self.data)
                 for x in obj:
-                    if isinstance(x, ifcopenshell.entity_instance):
-                        self.data.append(x.id())
-                    else:
-                        self.data.append(x)
+                    self.data.append(x.id() if all_entity else x)
                 start = len(self.struct)
-                self.struct.append(TAG_ARRAY)
+                self.struct.append(TAG_ARRAY if all_entity else TAG_ARRAY_RAW)
                 self.struct.append(len(obj))
                 self.struct.append(offset)
                 return start
@@ -466,14 +466,17 @@ class PackedBuilder:
             self.struct.append(TAG_NONE)
             return start
 
-        # Bare int → TAG_SINGULAR_INT, offset
+        # Anything that is not an entity instance or int (float, set, str, ...)
+        # raises TypeError here; callers rely on that to fall back to plain tuples.
         offset = len(self.data)
         if isinstance(obj, ifcopenshell.entity_instance):
             self.data.append(obj.id())
+            tag = TAG_SINGULAR_INT
         else:
             self.data.append(obj)
+            tag = TAG_SINGULAR_RAW
         start = len(self.struct)
-        self.struct.append(TAG_SINGULAR_INT)
+        self.struct.append(tag)
         self.struct.append(offset)
         return start
 
@@ -530,12 +533,12 @@ class PackedSequence:
         if tag == TAG_NONE:
             return idx + 1
 
-        if tag == TAG_ARRAY:
-            # TAG_ARRAY, length, offset
+        if tag in (TAG_ARRAY, TAG_ARRAY_RAW):
+            # tag, length, offset
             return idx + 3
 
-        if tag == TAG_SINGULAR_INT:
-            # TAG_SINGULAR_INT, offset
+        if tag in (TAG_SINGULAR_INT, TAG_SINGULAR_RAW):
+            # tag, offset
             return idx + 2
 
         if tag == TAG_TUPLE:
@@ -560,10 +563,13 @@ class PackedSequence:
         if tag == TAG_NONE:
             return None, idx + 1
 
-        if tag == TAG_ARRAY:
+        if tag in (TAG_ARRAY, TAG_ARRAY_RAW):
             length = self._struct[idx + 1]
             offset = self._struct[idx + 2]
-            value = tuple(self._data[offset + k] for k in range(length))
+            if tag == TAG_ARRAY:
+                value = tuple(self._resolve(self._data[offset + k]) for k in range(length))
+            else:
+                value = tuple(self._data[offset + k] for k in range(length))
             return value, idx + 3
 
         if tag == TAG_TUPLE:
@@ -575,28 +581,25 @@ class PackedSequence:
                 items.append(child_val)
             return tuple(items), j
 
-        if tag == TAG_SINGULAR_INT:
+        if tag in (TAG_SINGULAR_INT, TAG_SINGULAR_RAW):
             offset = self._struct[idx + 1]
             value = self._data[offset]
+            if tag == TAG_SINGULAR_INT:
+                value = self._resolve(value)
             return value, idx + 2
 
         raise ValueError(f"Unknown tag in struct: {tag!r}")
 
     # ---- iteration & indexing ----
 
-    def _to_model_instance(self, x):
-        if self._model is None:
-            return x
-        elif isinstance(x, tuple):
-            return tuple(self._to_model_instance(y) for y in x)
-        else:
-            return self._model[x]
+    def _resolve(self, x):
+        return x if self._model is None else self._model[x]
 
     def __iter__(self):
         idx = 0
         for _ in range(self._top_level_count):
             value, idx = self._decode_subtree(idx)
-            yield self._to_model_instance(value)
+            yield value
 
     def __getitem__(self, key):
         # Slicing: simplest is "materialise, then slice".
@@ -627,7 +630,6 @@ class PackedSequence:
 
         if i == idx:
             value, next_pos = self._decode_subtree(pos)
-            value = self._to_model_instance(value)
 
             self._last_index = i
             self._last_struct_pos = next_pos
