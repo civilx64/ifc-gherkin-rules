@@ -19,3 +19,9 @@ The rule only verifies profiles of type IfcArbitraryClosedProfileDef.
     Given the number of [edges]
     Then the values must be identical at depth 1
 
+  Scenario: Same number of points
+
+    Given the [points] of .CrossSections.
+    Given the number of [points]
+    Then the values must be identical at depth 1
+

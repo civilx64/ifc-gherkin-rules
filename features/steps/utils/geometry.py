@@ -136,6 +136,20 @@ def get_edges(file, inst, sequence_type=frozenset, oriented=False):
             edges = itertools.pairwise(coords)
             yield from map(edge_type, edges)
 
+        elif inst.is_a("IfcIndexedPolyCurve"):
+            edges = list()
+            if inst.Segments:
+                for seg in inst.Segments:
+                    edge = tuple(inst.Points.CoordList[i - 1] for i in seg.wrappedValue)
+                    edges.append(edge)
+            else:
+                # IndexedPolyCurve is just a polyline if Segments are not provided
+                coords = list()
+                for pt in inst.Points:
+                    coords.append(pt.Coordinates)
+                edges = tuple(coords)
+            return sequence_type(edges)
+
         else:
             raise NotImplementedError(f"get_edges({inst.is_a()})")
 
@@ -147,29 +161,31 @@ def get_profile_curve(inst: ifcopenshell.entity_instance) -> tuple[
     """
     Return the curve(s) that define an arbitrary profile definition
     """
+    if not inst.is_a("IfcArbitraryClosedProfileDef"):
+        raise TypeError(f"{inst.is_a()} is not a subtype of IfcArbitraryClosedProfileDef curve and therefore is not supported")
     if inst.is_a('IfcArbitraryClosedProfileDef'):
         return inst.OuterCurve,
     elif inst.is_a('IfcArbitraryOpenProfileDef)'):
         return inst.Curve
     elif inst.is_a('IfcCompositeProfileDef'):
         return tuple(get_profile_curve(prf) for prf in inst.Profiles)
-    elif inst.is_a('IfcDerivedProfileDef)'):
+    elif inst.is_a('IfcDerivedProfileDef'):
         return get_profile_curve(inst.ParentProfile),
     else:
         raise NotImplementedError(f"get_profile_curve({inst.is_a()})")
 
 
-def get_points(inst, return_type='coord', include_arc_midpoints=True):
+def get_points(inst, return_type='coord', include_arc_midpoints=True, sequence_type=frozenset):
     if inst.is_a().startswith('IfcCartesianPointList'):
-        return inst.CoordList
+        return sequence_type(p.Coordinates for p in inst.CoordList)
     elif inst.is_a('IfcPolyline'):
         if return_type == 'coord':
-            return [p.Coordinates for p in inst.Points]
+            return sequence_type(p.Coordinates for p in inst.Points)
         elif return_type == 'points':
             return inst.Points
     elif inst.is_a('IfcPolyLoop'):
         if return_type == 'coord':
-            return [p.Coordinates for p in inst.Polygon]
+            return sequence_type(p.Coordinates for p in inst.Polygon)
         elif return_type == 'points':
             return inst.Polygon
     elif inst.is_a('IfcIndexedPolyCurve'):
@@ -188,7 +204,7 @@ def get_points(inst, return_type='coord', include_arc_midpoints=True):
                         yield from a[:-1]
                 yield from gen[-1]
             joined = list(join())
-            return [ps[i-1] for i in joined if i >= 1 and i - 1 < len(ps)]
+            return sequence_type([ps[i-1] for i in joined if i >= 1 and i - 1 < len(ps)])
         else:
             return get_points(inst.Points)
     else:

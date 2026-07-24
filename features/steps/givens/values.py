@@ -55,8 +55,6 @@ def step_impl(context, inst, edges_or_points, attribute_containing_geometry):
     This implementation was initially developed to support SWE003 for IfcSectionedSolidHorizontal.
     The flexibility to specify a particular attribute is designed for other entity types relevant to infrastructure sweeps along alignments - such as IfcSectionedSurface.
     """
-    geom_inst_container = getattr(inst, attribute_containing_geometry)
-    profiles = tuple(utils.geometry.get_profile_curve(gi) for gi in geom_inst_container)
     def extract_geometry(item):
         """
         Recursively extract geometry, preserving nesting structure
@@ -64,13 +62,16 @@ def step_impl(context, inst, edges_or_points, attribute_containing_geometry):
         if isinstance(item, (tuple, list)):
             return tuple(extract_geometry(sub_item) for sub_item in item)
         else:
-           if edges_or_points.upper() == "EDGES":
-               return utils.geometry.get_edges(context.model, item)
-           elif edges_or_points.upper() == "POINTS":
-               return utils.geometry.get_points(context.model, item)
-           else:
-               raise ValueError(f"Invalid value for edges_or_points: {edges_or_points}")
+            if edges_or_points.upper() == "EDGES":
+                return utils.geometry.get_edges(context.model, item)
+            elif edges_or_points.upper() == "POINTS":
+                return utils.geometry.get_points(item, sequence_type=tuple)
+            else:
+                raise ValueError(f"Invalid value for edges_or_points: {edges_or_points}")
 
+    geom_inst_container = getattr(inst, attribute_containing_geometry)
+
+    profiles = tuple(utils.geometry.get_profile_curve(gi) for gi in geom_inst_container)
     if edges_or_points.upper() in ("EDGES", "POINTS"):
         geometry = extract_geometry(profiles)
         yield ValidationOutcome(inst=geometry, severity=OutcomeSeverity.PASSED)
@@ -78,17 +79,21 @@ def step_impl(context, inst, edges_or_points, attribute_containing_geometry):
         raise ValueError(f"Invalid value for edges_or_points: {edges_or_points}")
 
 
+
 @gherkin_ifc.step("the number of [{edges_or_points}]")
 def step_impl(context, inst, edges_or_points):
     ep = edges_or_points.upper()
     if ep in ("EDGES", "POINTS"):
         def count_collection(item):
+            # count the number of edges or points, maintaining nested structure
+            # if the counts are returned as integers, `handle_givens()` will decode these into entity instances from context.model
+            # therefore we return a string
             if isinstance(item, (tuple, list)):
                 return tuple(count_collection(sub_item) for sub_item in item)
             elif isinstance(item, (frozenset, set)):
-                return len(item)
+                return f"{len(item)} {edges_or_points}"
             else:
-                return len(item)
+                return f"{len(item)} {edges_or_points}"
         count = count_collection(inst)
         yield ValidationOutcome(inst=count, severity=OutcomeSeverity.PASSED)
     else:
